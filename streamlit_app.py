@@ -2,14 +2,17 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-# Show the page title and description.
-st.set_page_config(page_title="Movies dataset", page_icon="🎬")
-st.title("🎬 Movies dataset")
+
+st.set_page_config(page_title="Titanic dataset", page_icon="🚢")
+
+st.image("data/image.png")
+
+st.title("🧊💑🚢 Titanic dataset")
 st.write(
     """
-    This app visualizes data from [The Movie Database (TMDB)](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata).
-    It shows which movie genre performed best at the box office over the years. Just 
-    click on the widgets below to explore!
+    Вариант 19.
+    Подсчитать количество погибших мужчин *старше указанного возраста* по каждому пункту
+посадки.
     """
 )
 
@@ -18,49 +21,35 @@ st.write(
 # reruns (e.g. if the user interacts with the widgets).
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/movies_genres_summary.csv")
+    df = pd.read_csv("data/titanic_train.csv")
     return df
 
 
 df = load_data()
 
 # Show a multiselect widget with the genres using `st.multiselect`.
-genres = st.multiselect(
-    "Genres",
-    df.genre.unique(),
-    ["Action", "Adventure", "Biography", "Comedy", "Drama", "Horror"],
-)
+# genres = st.multiselect(
+#     "Genres",
+#     df.genre.unique(),
+#     ["Action", "Adventure", "Biography", "Comedy", "Drama", "Horror"],
+# )
 
 # Show a slider widget with the years using `st.slider`.
-years = st.slider("Years", 1986, 2006, (2000, 2016))
+# years = st.slider("Years", 1986, 2006, (2000, 2016))
+age_limit = st.slider("Select the minimum age:", min_value=0, max_value=int(df['Age'].max())+10, value=25)
 
-# Filter the dataframe based on the widget input and reshape it.
-df_filtered = df[(df["genre"].isin(genres)) & (df["year"].between(years[0], years[1]))]
-df_reshaped = df_filtered.pivot_table(
-    index="year", columns="genre", values="gross", aggfunc="sum", fill_value=0
-)
-df_reshaped = df_reshaped.sort_values(by="year", ascending=False)
+all_embarked = df['Embarked'].dropna().unique().tolist()
+df['NotSurvived'] = 1 - df['Survived']
+
+df_reshaped = df[
+    (df['Sex']=='male') & (df['Age']>age_limit)
+].groupby('Embarked')['NotSurvived']\
+    .sum().reindex(all_embarked, fill_value=0).sort_values(ascending=False)
 
 
-# Display the data as a table using `st.dataframe`.
 st.dataframe(
     df_reshaped,
     use_container_width=True,
-    column_config={"year": st.column_config.TextColumn("Year")},
+    column_config={"Embarked": st.column_config.TextColumn("Embarked")},
 )
 
-# Display the data as an Altair chart using `st.altair_chart`.
-df_chart = pd.melt(
-    df_reshaped.reset_index(), id_vars="year", var_name="genre", value_name="gross"
-)
-chart = (
-    alt.Chart(df_chart)
-    .mark_line()
-    .encode(
-        x=alt.X("year:N", title="Year"),
-        y=alt.Y("gross:Q", title="Gross earnings ($)"),
-        color="genre:N",
-    )
-    .properties(height=320)
-)
-st.altair_chart(chart, use_container_width=True)
